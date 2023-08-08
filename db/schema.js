@@ -24,6 +24,7 @@ const typeDefs = gql`
     name: String
     lastName: String
     telephone: String
+    email: String
     business: String
     seller: ID
   }
@@ -59,6 +60,11 @@ const typeDefs = gql`
     getProducts: [Product]
 
     getProduct(id: ID!): Product
+
+    # Client
+    getClients: [Client]
+    getClientsSeller: [Client]
+    getClient(id: ID!): Client
   }
   type Mutation {
     # User
@@ -72,6 +78,8 @@ const typeDefs = gql`
 
     # Cliente
     newClient(input: ClientInput): Client
+    updateClient(id: ID!, input: ClientInput): Client
+    deleteClient(id: ID!): String
   }
 `;
 

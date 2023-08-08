@@ -39,6 +39,38 @@ const resolvers = {
 
       return product;
     },
+
+    /*  Cliente  */
+    getClients: async () => {
+      try {
+        const clients = await Client.find({});
+        return clients;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClientsSeller: async (_, {}, ctx) => {
+      try {
+        const clients = await Client.find({ seller: ctx.user.id.toString() });
+        return clients;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getClient: async (_, { id }, ctx) => {
+      // Revisar si existe el client
+      const client = await Client.findById(id);
+      if (!client) {
+        throw new Error("El cliente no existe");
+      }
+
+      // Quien lo creo puede verlo
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      return client;
+    },
   },
   Mutation: {
     /* Users */
@@ -127,7 +159,6 @@ const resolvers = {
     },
 
     /* Client */
-
     newClient: async (_, { input }, ctx) => {
       console.log(ctx);
       // verifcar si el cliente está registrado
@@ -148,6 +179,40 @@ const resolvers = {
       } catch (error) {
         console.log(error);
       }
+    },
+
+    updateClient: async (_, { id, input }, ctx) => {
+      // verifcar si el client existe
+      let client = await Client.findById(id);
+      if (!client) {
+        throw new Error("El cliente no existe");
+      }
+      // Verificar si el vendedor edita su propio cliente
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      // Guardar cliente
+      client = await Client.findOneAndUpdate({ _id: id }, input, { new: true });
+
+      return client;
+    },
+
+    deleteClient: async (_, { id }, ctx) => {
+      // verifcar si el client existe
+      let client = await Client.findById(id);
+      if (!client) {
+        throw new Error("El cliente no existe");
+      }
+      // Verificar si el vendedor edita su propio cliente
+      if (client.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      // Guardar cliente
+      client = await Client.findOneAndRemove({ _id: id });
+
+      return "client eliminado";
     },
   },
 };
