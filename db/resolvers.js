@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Product = require("../models/Product");
 const Client = require("../models/Client");
+const Orders = require("../models/Orders");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config({ path: "variables.env" });
@@ -160,7 +161,6 @@ const resolvers = {
 
     /* Client */
     newClient: async (_, { input }, ctx) => {
-      console.log(ctx);
       // verifcar si el cliente está registrado
       const { email } = input;
       const client = await Client.findOne({ email });
@@ -213,6 +213,42 @@ const resolvers = {
       client = await Client.findOneAndRemove({ _id: id });
 
       return "client eliminado";
+    },
+
+    /* Orders */
+    newOrder: async (_, { input }, ctx) => {
+      const { client } = input;
+      // verifcar si el client existe
+      let isCLient = await Client.findById(client);
+      if (!isCLient) {
+        throw new Error("El cliente no existe");
+      }
+      // Verificar si el cliente es del seller
+      if (isCLient.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+      //Revisar que el stock esté disponible
+      for await (const order of input.orders) {
+        const { id, quantity } = order;
+        const product = await Product.findById(id);
+
+        if (quantity > product.exist) {
+          throw new Error(
+            `El pedido sobre el producto: ${product.name} excede la cantidad de sock`
+          );
+        } else {
+          // Restar la cantida de stock
+          product.exist = product.exist - order.quantity;
+          await product.save();
+        }
+      }
+      // Crear nuevo pedido
+      const newOrders = new Orders(input);
+      // Asignar un seller
+      newOrders.seller = ctx.user.id;
+      // Guardar en bd
+      const result = await newOrders.save();
+      return result;
     },
   },
 };
