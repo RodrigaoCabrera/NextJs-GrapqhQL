@@ -72,6 +72,102 @@ const resolvers = {
 
       return client;
     },
+
+    /*  Orders */
+    getOrders: async () => {
+      try {
+        const orders = await Orders.find({});
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrdersSeller: async (_, {}, ctx) => {
+      try {
+        const orders = await Orders.find({ seller: ctx.user.id });
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrder: async (_, { id }, ctx) => {
+      // Revisar si existe el orders
+      const order = await Orders.findById(id);
+      if (!order) {
+        throw new Error("El pedido no existe");
+      }
+
+      // Quien no lo creo no puede verlo
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      return order;
+    },
+    getOrdersByState: async (_, { state }, ctx) => {
+      const orders = await Orders.find({ seller: ctx.user.id, state });
+
+      return orders;
+    },
+
+    /* Mejores clientes */
+    bestClients: async () => {
+      const clients = await Orders.aggregate([
+        { $match: { state: "COMPLETED" } },
+        {
+          $group: {
+            _id: "$client",
+            total: { $sum: "$total" },
+          },
+        },
+        {
+          $lookup: {
+            from: "clients",
+            localField: "_id",
+            foreignField: "_id",
+            as: "client",
+          },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $sort: { total: -1 },
+        },
+      ]);
+      return clients;
+    },
+    bestSellers: async () => {
+      const sellers = await Orders.aggregate([
+        { $match: { state: "COMPLETED" } },
+        {
+          $group: {
+            _id: "$seller",
+            total: { $sum: "$total" },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "seller",
+          },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $sort: { total: -1 },
+        },
+      ]);
+      return sellers;
+    },
+
+    searchProduct: async (_, { text }) => {
+      const products = await Product.find({ $text: { $search: text } });
+      return products;
+    },
   },
   Mutation: {
     /* Users */
@@ -249,6 +345,64 @@ const resolvers = {
       // Guardar en bd
       const result = await newOrders.save();
       return result;
+    },
+
+    updateOrder: async (_, { id, input }, ctx) => {
+      // verifcar si el order existe
+      let order = await Orders.findById(id);
+      if (!order) {
+        throw new Error("El pedido no existe");
+      }
+      // Verificar si el cliente existe
+      let cliente = await Client.findById(input.client);
+      if (!cliente) {
+        throw new Error("El cliente no existe");
+      }
+      // Verificar si el cliente y pedido pertenecen al seller
+      if (cliente.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      // Revisar el stock
+      if (input.orders) {
+        for await (const order of input.orders) {
+          const { id, quantity } = order;
+          const product = await Product.findById(id);
+
+          if (quantity > product.exist) {
+            throw new Error(
+              `El pedido sobre el producto: ${product.name} excede la cantidad de sock`
+            );
+          } else {
+            // Restar la cantida de stock
+            product.exist = product.exist - order.quantity;
+            await product.save();
+          }
+        }
+      }
+
+      // Guardar nuevo pedido
+      const result = await Orders.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return result;
+    },
+
+    deleteOrder: async (_, { id }, ctx) => {
+      // verifcar si el Order existe
+      let order = await Orders.findById(id);
+      if (!order) {
+        throw new Error("El Ordere no existe");
+      }
+      // Verificar si el vendedor es quien lo borra
+      if (order.seller.toString() !== ctx.user.id) {
+        throw new Error("No tienes las credenciales");
+      }
+
+      // Guardar Ordere
+      await Orders.findOneAndRemove({ _id: id });
+
+      return "Pedido eliminado";
     },
   },
 };
