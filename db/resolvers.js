@@ -7,17 +7,15 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config({ path: "variables.env" });
 
 const createToken = (user, secret, expiresIn) => {
-  const { id, email, name, lasName } = user;
-  return jwt.sign({ id }, secret, { expiresIn });
+  const { id, email, name, lastName } = user;
+  return jwt.sign({ id, email, name, lastName }, secret, { expiresIn });
 };
 // Resolvers
 const resolvers = {
   Query: {
     // Users
-    getUser: async (_, { token }) => {
-      const userId = await jwt.verify(token, process.env.SECRET);
-
-      return userId;
+    getUser: async (_, {}, ctx) => {
+      return ctx.user;
     },
 
     // Products
