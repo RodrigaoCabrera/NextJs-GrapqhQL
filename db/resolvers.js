@@ -242,13 +242,13 @@ const resolvers = {
     deleteProduct: async (_, { id }) => {
       // Revisar si existe el product
       let product = await Product.findById(id);
-
+      console.log(product);
       if (!product) {
         throw new Error("El producto no existe");
       }
 
       // ELiminamos product
-      Product.findOneAndRemove({ _id: id });
+      await Product.findOneAndRemove({ _id: id });
 
       return "Producto eliminado";
     },

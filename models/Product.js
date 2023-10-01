@@ -20,5 +20,4 @@ const productSchema = mongoose.Schema({
     default: Date.now(),
   },
 });
-productSchema.index({ name: "text" });
 module.exports = mongoose.model("Product", productSchema);
